@@ -10,9 +10,36 @@ public class EntityAdmin : IDisposable
 	private List<Entity> _entities = new List<Entity>();
 	private Dictionary<Type, IEntityFilter> _entityFiltersMap = new Dictionary<Type, IEntityFilter>();
 
+	private List<EntitySystemBase> _systems = new List<EntitySystemBase>();
+
 	public Entity[] GetAllEntities()
 	{
 		return _entities.ToArray();
+	}
+
+	public void ExecuteSystems(float deltaTime)
+	{
+		for(int i = 0; i < _systems.Count; i++)
+		{
+			_systems[i].Execute(deltaTime);
+		}
+	}
+
+	public void AddSystem(EntitySystemBase entitySystem)
+	{
+		if(!_systems.Contains(entitySystem))
+		{
+			_systems.Add(entitySystem);
+			entitySystem.Initialize(this);
+		}
+	}
+
+	public void RemoveSystem(EntitySystemBase entitySystem)
+	{
+		if(_systems.Remove(entitySystem))
+		{
+			entitySystem.Deinitialize();
+		}
 	}
 
 	public void AddEntity(Entity entity)
@@ -65,5 +92,11 @@ public class EntityAdmin : IDisposable
 			RemoveEntity(_entities[i]);
 		}
 		_entities.Clear();
+
+		for(int i = _systems.Count - 1; i >= 0; i--)
+		{
+			RemoveSystem(_systems[i]);
+		}
+		_systems.Clear();
 	}
 }
