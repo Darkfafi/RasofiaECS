@@ -1,4 +1,4 @@
 ﻿public interface IFilterData
 {
-	bool TrySetFilterData(Entity entity);
+	bool TrySetFilterData(Entity entity, EntityAdmin entityAdmin);
 }

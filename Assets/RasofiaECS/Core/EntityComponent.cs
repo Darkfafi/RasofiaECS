@@ -1,6 +1,6 @@
 ﻿public class EntityComponent
 {
-	public Entity Parent
+	public Entity Entity
 	{
 		get; internal set;
 	}

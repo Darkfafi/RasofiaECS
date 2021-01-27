@@ -1,15 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
-public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter
+public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter<FilterDataT>
 	where FilterDataT : struct, IFilterData
 	where FilterRefresherT : FilterRefresher, new()
 {
 	public delegate void EntityDataHandler(string entityId, FilterDataT filterData);
 	public event EntityDataHandler DataAddedEvent;
 	public event EntityDataHandler DataRemovedEvent;
+	public event EntityDataHandler DataUpdatedEvent;
 
-	private List<IEntityFilterListener<FilterDataT, FilterRefresherT>> _listeners = new List<IEntityFilterListener<FilterDataT, FilterRefresherT>>();
+	private List<IEntityFilterListener<FilterDataT>> _listeners = new List<IEntityFilterListener<FilterDataT>>();
 	private Dictionary<string, FilterDataT> _idToFilterData = new Dictionary<string, FilterDataT>();
 	private FilterRefresherT _refresher;
 
@@ -24,8 +26,7 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter
 	{
 		return _idToFilterData.Values.ToArray();
 	}
-
-	public void RegisterListener(IEntityFilterListener<FilterDataT, FilterRefresherT> listener, bool triggerForCurrentEntries = true)
+	public void RegisterListener(IEntityFilterListener<FilterDataT> listener, bool triggerForCurrentEntries = true)
 	{
 		if(!_listeners.Contains(listener))
 		{
@@ -41,7 +42,7 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter
 		}
 	}
 
-	public void UnregisterListener(IEntityFilterListener<FilterDataT, FilterRefresherT> listener, bool triggerForCurrentEntries = true)
+	public void UnregisterListener(IEntityFilterListener<FilterDataT> listener, bool triggerForCurrentEntries = true)
 	{
 		if(_listeners.Remove(listener))
 		{
@@ -54,6 +55,16 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter
 				}
 			}
 		}
+	}
+
+	public void RegisterListener(IEntityFilterListener<FilterDataT, FilterRefresherT> listener, bool triggerForCurrentEntries = true)
+	{
+		RegisterListener((IEntityFilterListener<FilterDataT>)listener, triggerForCurrentEntries);
+	}
+
+	public void UnregisterListener(IEntityFilterListener<FilterDataT, FilterRefresherT> listener, bool triggerForCurrentEntries = true)
+	{
+		UnregisterListener((IEntityFilterListener<FilterDataT>)listener, triggerForCurrentEntries);
 	}
 
 	public bool TryGetData(string entityId, out FilterDataT filterData)
@@ -84,9 +95,10 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter
 	{
 		if(_idToFilterData.TryGetValue(entity.UniqueIdentifier, out FilterDataT filterData))
 		{
-			if(!filterData.TrySetFilterData(entity))
+			FilterDataT updatedFilterData = new FilterDataT();
+			if(!updatedFilterData.TrySetFilterData(entity, _refresher.EntityAdmin))
 			{
-				_idToFilterData.Remove(entity.UniqueIdentifier); 
+				_idToFilterData.Remove(entity.UniqueIdentifier);
 				var listeners = _listeners.ToArray();
 				for(int i = 0, c = listeners.Length; i < c; i++)
 				{
@@ -94,11 +106,21 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter
 				}
 				DataRemovedEvent?.Invoke(entity.UniqueIdentifier, filterData);
 			}
+			else if(!updatedFilterData.Equals(filterData))
+			{
+				_idToFilterData[entity.UniqueIdentifier] = updatedFilterData;
+				var listeners = _listeners.ToArray();
+				for(int i = 0, c = listeners.Length; i < c; i++)
+				{
+					listeners[i].OnDataUnregistered(filterData);
+				}
+				DataUpdatedEvent?.Invoke(entity.UniqueIdentifier, updatedFilterData);
+			}
 		}
 		else
 		{
 			filterData = new FilterDataT();
-			if(filterData.TrySetFilterData(entity))
+			if(filterData.TrySetFilterData(entity, _refresher.EntityAdmin))
 			{
 				_idToFilterData[entity.UniqueIdentifier] = filterData;
 				var listeners = _listeners.ToArray();

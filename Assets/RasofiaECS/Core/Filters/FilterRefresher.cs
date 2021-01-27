@@ -4,7 +4,7 @@ public class FilterRefresher
 {
 	public event Action<Entity> RefreshRequestEvent;
 
-	protected EntityAdmin EntityAdmin
+	public EntityAdmin EntityAdmin
 	{
 		get; private set;
 	}

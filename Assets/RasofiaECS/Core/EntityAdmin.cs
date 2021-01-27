@@ -1,20 +1,46 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
-public class EntityAdmin : IDisposable
+public sealed class EntityAdmin : Entity, IDisposable
 {
 	public delegate void EntityHandler(Entity entity);
 	public event EntityHandler EntityAddedEvent;
 	public event EntityHandler EntityRemovedEvent;
 
-	private List<Entity> _entities = new List<Entity>();
+	private Dictionary<string, Entity> _entitiesMap = new Dictionary<string, Entity>();
 	private Dictionary<Type, IEntityFilter> _entityFiltersMap = new Dictionary<Type, IEntityFilter>();
 
 	private List<EntitySystemBase> _systems = new List<EntitySystemBase>();
 
+	public static EntityAdmin Create(params EntitySystemBase[] systems)
+	{
+		return new EntityAdmin(systems, null);
+	}
+
+	public static EntityAdmin Create(params EntityComponent[] components)
+	{
+		return new EntityAdmin(null, components);
+	}
+
+	internal EntityAdmin(EntitySystemBase[] systems, EntityComponent[] singletonComponents)
+		: base(singletonComponents)
+	{
+		if(systems != null)
+		{
+			AddSystems(systems);
+		}
+		AddEntity(this);
+	}
+
 	public Entity[] GetAllEntities()
 	{
-		return _entities.ToArray();
+		return _entitiesMap.Values.ToArray();
+	}
+
+	public bool TryGetEntity(string entityId, out Entity entity)
+	{
+		return _entitiesMap.TryGetValue(entityId, out entity);
 	}
 
 	public void ExecuteSystems(float deltaTime)
@@ -22,6 +48,14 @@ public class EntityAdmin : IDisposable
 		for(int i = 0; i < _systems.Count; i++)
 		{
 			_systems[i].Execute(deltaTime);
+		}
+	}
+
+	public void AddSystems(EntitySystemBase[] entitySystems)
+	{
+		for(int i = 0; i < entitySystems.Length; i++)
+		{
+			AddSystem(entitySystems[i]);
 		}
 	}
 
@@ -42,24 +76,32 @@ public class EntityAdmin : IDisposable
 		}
 	}
 
-	public void AddEntity(Entity entity)
+	public Entity CreateEntity(params EntityComponent[] entityComponents)
 	{
-		if(!_entities.Contains(entity))
-		{
-			_entities.Add(entity);
-			EntityAddedEvent?.Invoke(entity);
-		}
+		Entity entity = new Entity(entityComponents);
+		AddEntity(entity);
+		return entity;
 	}
 
-	public void RemoveEntity(Entity entity)
+	public void DestroyEntity(Entity entity)
 	{
-		if(_entities.Remove(entity))
+		// Can't Remove Itself
+		if(entity.UniqueIdentifier != UniqueIdentifier && 
+			_entitiesMap.Remove(entity.UniqueIdentifier))
 		{
 			EntityRemovedEvent?.Invoke(entity);
 		}
 	}
 
-	public EntityFilter<FilterDataT, FilterRefresher> GetEntityFilter<FilterDataT>()
+	public void DestroyEntity(string entityId)
+	{
+		if(_entitiesMap.TryGetValue(entityId, out Entity entity))
+		{
+			DestroyEntity(entity);
+		}
+	}
+
+	public IEntityFilter<FilterDataT> GetEntityFilter<FilterDataT>()
 		where FilterDataT : struct, IFilterData
 	{
 		return GetEntityFilter<FilterDataT, FilterRefresher>();
@@ -87,16 +129,23 @@ public class EntityAdmin : IDisposable
 		}
 		_entityFiltersMap.Clear();
 
-		for(int i = _entities.Count - 1; i >= 0; i--)
+		Entity[] entities = _entitiesMap.Values.ToArray();
+		for(int i = entities.Length - 1; i >= 0; i--)
 		{
-			RemoveEntity(_entities[i]);
+			DestroyEntity(entities[i]);
 		}
-		_entities.Clear();
+		_entitiesMap.Clear();
 
 		for(int i = _systems.Count - 1; i >= 0; i--)
 		{
 			RemoveSystem(_systems[i]);
 		}
 		_systems.Clear();
+	}
+
+	private void AddEntity(Entity entity)
+	{
+		_entitiesMap.Add(entity.UniqueIdentifier, entity);
+		EntityAddedEvent?.Invoke(entity);
 	}
 }

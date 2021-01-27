@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-public sealed class Entity
+public class Entity
 {
 	public readonly string UniqueIdentifier;
 
@@ -11,17 +11,29 @@ public sealed class Entity
 
 	private List<EntityComponent> _components = new List<EntityComponent>();
 
-	public Entity()
+	internal Entity(EntityComponent[] components)
 	{
 		UniqueIdentifier = Guid.NewGuid().ToString();
+		if(components != null)
+		{
+			AddComponents(components);
+		}
+	}
+
+	public void AddComponents(EntityComponent[] entityComponents)
+	{
+		for(int i = 0; i < entityComponents.Length; i++)
+		{
+			AddComponent(entityComponents[i]);
+		}
 	}
 
 	public void AddComponent(EntityComponent entityComponent)
 	{
-		if(!_components.Contains(entityComponent) && entityComponent.Parent == null)
+		if(!_components.Contains(entityComponent) && entityComponent.Entity == null)
 		{
 			_components.Add(entityComponent);
-			entityComponent.Parent = this;
+			entityComponent.Entity = this;
 			ComponentAddedEvent?.Invoke(this, entityComponent);
 		}
 	}
@@ -31,7 +43,7 @@ public sealed class Entity
 		if(_components.Remove(entityComponent))
 		{
 			ComponentRemovedEvent?.Invoke(this, entityComponent);
-			entityComponent.Parent = null;
+			entityComponent.Entity = null;
 		}
 	}
 
