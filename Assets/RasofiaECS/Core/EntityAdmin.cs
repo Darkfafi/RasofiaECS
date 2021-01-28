@@ -2,11 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 
-public sealed class EntityAdmin : Entity, IDisposable
+public sealed class EntityAdmin : IDisposable
 {
 	public delegate void EntityHandler(Entity entity);
 	public event EntityHandler EntityAddedEvent;
 	public event EntityHandler EntityRemovedEvent;
+
+	public bool IsRunning
+	{
+		get; private set;
+	}
 
 	private Dictionary<string, Entity> _entitiesMap = new Dictionary<string, Entity>();
 	private Dictionary<Type, IEntityFilter> _entityFiltersMap = new Dictionary<Type, IEntityFilter>();
@@ -15,22 +20,36 @@ public sealed class EntityAdmin : Entity, IDisposable
 
 	public static EntityAdmin Create(params EntitySystemBase[] systems)
 	{
-		return new EntityAdmin(systems, null);
+		return new EntityAdmin(systems);
 	}
 
-	public static EntityAdmin Create(params EntityComponent[] components)
-	{
-		return new EntityAdmin(null, components);
-	}
-
-	internal EntityAdmin(EntitySystemBase[] systems, EntityComponent[] singletonComponents)
-		: base(singletonComponents)
+	internal EntityAdmin(EntitySystemBase[] systems)
 	{
 		if(systems != null)
 		{
 			AddSystems(systems);
 		}
-		AddEntity(this);
+	}
+
+	public void AddSingletonComponent<T>(T singletonComponent, params EntityComponent[] entityComponents) where T : EntityMasterComponent
+	{
+		string singletonId = typeof(T).FullName;
+		Entity entity = CreateEntity(singletonId, singletonComponent);
+		entity.AddComponents(entityComponents);
+	}
+
+	public T GetSingletonComponent<T>() where T : EntityMasterComponent
+	{
+		return GetSingletonEntity<T>()?.GetComponent<T>();
+	}
+
+	public Entity GetSingletonEntity<T>() where T : EntityMasterComponent
+	{
+		if(_entitiesMap.TryGetValue(typeof(T).FullName, out Entity entity))
+		{
+			return entity;
+		}
+		return null;
 	}
 
 	public Entity[] GetAllEntities()
@@ -45,7 +64,16 @@ public sealed class EntityAdmin : Entity, IDisposable
 
 	public void ExecuteSystems(float deltaTime)
 	{
-		for(int i = 0; i < _systems.Count; i++)
+		if(!IsRunning)
+		{
+			IsRunning = true;
+			for(int i = 0, c = _systems.Count; i < c; i++)
+			{
+				_systems[i].Initialize(this);
+			}
+		}
+
+		for(int i = 0, c = _systems.Count; i < c; i++)
 		{
 			_systems[i].Execute(deltaTime);
 		}
@@ -64,7 +92,10 @@ public sealed class EntityAdmin : Entity, IDisposable
 		if(!_systems.Contains(entitySystem))
 		{
 			_systems.Add(entitySystem);
-			entitySystem.Initialize(this);
+			if(IsRunning)
+			{
+				entitySystem.Initialize(this);
+			}
 		}
 	}
 
@@ -72,13 +103,26 @@ public sealed class EntityAdmin : Entity, IDisposable
 	{
 		if(_systems.Remove(entitySystem))
 		{
-			entitySystem.Deinitialize();
+			if(IsRunning)
+			{
+				entitySystem.Deinitialize();
+			}
 		}
 	}
 
 	public Entity CreateEntity(params EntityComponent[] entityComponents)
 	{
-		Entity entity = new Entity(entityComponents);
+		return CreateEntity(Guid.NewGuid().ToString(), entityComponents);
+	}
+
+	public Entity CreateEntity(string identifier, params EntityComponent[] entityComponents)
+	{
+		if(_entitiesMap.ContainsKey(identifier))
+		{
+			throw new Exception($"Duplicate Identifier, can't create Entity with ID \"{identifier}\"");
+		}
+
+		Entity entity = new Entity(identifier, entityComponents);
 		AddEntity(entity);
 		return entity;
 	}
@@ -86,10 +130,11 @@ public sealed class EntityAdmin : Entity, IDisposable
 	public void DestroyEntity(Entity entity)
 	{
 		// Can't Remove Itself
-		if(entity.UniqueIdentifier != UniqueIdentifier && 
-			_entitiesMap.Remove(entity.UniqueIdentifier))
+		if(_entitiesMap.Remove(entity.UniqueIdentifier))
 		{
 			EntityRemovedEvent?.Invoke(entity);
+			entity.ComponentAddedEvent -= OnEntityMarkedDirty;
+			entity.ComponentRemovedEvent -= OnEntityMarkedDirty;
 		}
 	}
 
@@ -102,13 +147,13 @@ public sealed class EntityAdmin : Entity, IDisposable
 	}
 
 	public IEntityFilter<FilterDataT> GetEntityFilter<FilterDataT>()
-		where FilterDataT : struct, IFilterData
+		where FilterDataT : struct, IEntityFilterData
 	{
 		return GetEntityFilter<FilterDataT, FilterRefresher>();
 	}
 
 	public EntityFilter<FilterDataT, FilterRefresherT> GetEntityFilter<FilterDataT, FilterRefresherT>()
-		where FilterDataT : struct, IFilterData
+		where FilterDataT : struct, IEntityFilterData
 		where FilterRefresherT : FilterRefresher, new()
 	{
 		Type filterDataType = typeof(FilterDataT);
@@ -146,6 +191,17 @@ public sealed class EntityAdmin : Entity, IDisposable
 	private void AddEntity(Entity entity)
 	{
 		_entitiesMap.Add(entity.UniqueIdentifier, entity);
+		entity.ComponentAddedEvent += OnEntityMarkedDirty;
+		entity.ComponentRemovedEvent += OnEntityMarkedDirty;
 		EntityAddedEvent?.Invoke(entity);
+	}
+
+	private void OnEntityMarkedDirty(Entity entity, EntityComponent component)
+	{
+		EntityMasterComponent[] masters = entity.GetComponents<EntityMasterComponent>();
+		for(int i = masters.Length - 1; i >= 0; i--)
+		{
+			masters[i].Refresh();
+		}
 	}
 }

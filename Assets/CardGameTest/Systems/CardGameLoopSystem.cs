@@ -1,34 +1,19 @@
-﻿using System.Collections;
-using UnityEngine;
-
-public class CardGameLoopSystem : EntitySystemBase, IEntityFilterListener<GameLoopData>
+﻿public class CardGameLoopSystem : EntitySystemBase
 {
-	private IEntityFilter<GameLoopData> _gameLoopFilter;
+	private CardGameMaster _cardGameMaster;
 
 	public override void Initialize(EntityAdmin entityAdmin)
 	{
 		base.Initialize(entityAdmin);
-		_gameLoopFilter = entityAdmin.GetEntityFilter<GameLoopData>();
-		_gameLoopFilter.RegisterListener(this);
+		_cardGameMaster = EntityAdmin.GetSingletonComponent<CardGameMaster>();
+		_cardGameMaster.GamePhaseTag.GamePhaseChangedEvent += OnGamePhaseChangedEvent;
 	}
 
 	public override void Deinitialize()
 	{
-		_gameLoopFilter.UnregisterListener(this);
-		_gameLoopFilter = null;
+		_cardGameMaster.GamePhaseTag.GamePhaseChangedEvent -= OnGamePhaseChangedEvent;
+		_cardGameMaster = null;
 		base.Deinitialize();
-	}
-
-	public void OnDataRegistered(GameLoopData filterData)
-	{
-		filterData.GamePhaseTag.GamePhaseChangedEvent += OnGamePhaseChangedEvent;
-		OnGamePhaseChangedEvent(filterData.GamePhaseTag.GamePhase);
-	}
-
-	public void OnDataUnregistered(GameLoopData filterData)
-	{
-		filterData.GamePhaseTag.GamePhaseChangedEvent -= OnGamePhaseChangedEvent;
-		OnGamePhaseChangedEvent(GamePhase.End);
 	}
 
 	private void OnGamePhaseChangedEvent(GamePhase phase)
@@ -36,38 +21,15 @@ public class CardGameLoopSystem : EntitySystemBase, IEntityFilterListener<GameLo
 		switch(phase)
 		{
 			case GamePhase.Setup:
-				SeatDeckData[] allSeatDeckData = EntityAdmin.GetEntityFilter<SeatDeckData>().GetAllData();
-				for(int i = 0; i < allSeatDeckData.Length; i++)
+				EntityAdmin.GetEntityFilter<MasterFilterData<SeatMaster>>().ForEach(x =>
 				{
 					Entity[] cards = CardHelperMethods.CreateFullDeckOfCards(EntityAdmin, true);
 					for(int j = 0; j < cards.Length; j++)
 					{
-						CardHelperMethods.MoveToZone(cards[j], allSeatDeckData[i].CardZoneTag);
+						CardHelperMethods.MoveToZone(cards[j], x.Master.DeckZone);
 					}
-				}
+				});
 				break;
 		}
-	}
-}
-
-public struct GameLoopData : IFilterData
-{
-	public GamePhaseTag GamePhaseTag;
-
-	public bool TrySetFilterData(Entity entity, EntityAdmin entityAdmin)
-	{
-		GamePhaseTag = entity.GetComponent<GamePhaseTag>();
-		return GamePhaseTag != null;
-	}
-}
-
-public struct SeatDeckData : IFilterData
-{
-	public CardZoneTag CardZoneTag;
-
-	public bool TrySetFilterData(Entity entity, EntityAdmin entityAdmin)
-	{
-		CardZoneTag = entity.GetComponent<CardZoneTag>();
-		return CardZoneTag != null && CardZoneTag.CardZone == CardZone.Deck;
 	}
 }

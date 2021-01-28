@@ -7,6 +7,7 @@ public static class CardHelperMethods
 	{
 		return admin.CreateEntity
 		(
+			new CardMaster(),
 			new CardTypeTag() { CardType = cardType },
 			new CardSuitTag() { CardSuit = cardSuit },
 			new CardColorTag() { CardColor = GetCardColorForSuit (cardSuit) }
@@ -17,6 +18,7 @@ public static class CardHelperMethods
 	{
 		return admin.CreateEntity
 		(
+			new CardMaster(),
 			new CardColorTag() { CardColor = cardColor },	
 			new JokerCardTypeTag()
 		);

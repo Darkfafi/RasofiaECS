@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter<FilterDataT>
-	where FilterDataT : struct, IFilterData
+	where FilterDataT : struct, IEntityFilterData
 	where FilterRefresherT : FilterRefresher, new()
 {
 	public delegate void EntityDataHandler(string entityId, FilterDataT filterData);
@@ -26,6 +26,16 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter<FilterD
 	{
 		return _idToFilterData.Values.ToArray();
 	}
+
+	public void ForEach(Action<FilterDataT> action)
+	{
+		FilterDataT[] allData = _idToFilterData.Values.ToArray();
+		for(int i = 0, c = allData.Length; i < c; i++)
+		{
+			action(allData[i]);
+		}
+	}
+
 	public void RegisterListener(IEntityFilterListener<FilterDataT> listener, bool triggerForCurrentEntries = true)
 	{
 		if(!_listeners.Contains(listener))
@@ -89,6 +99,10 @@ public class EntityFilter<FilterDataT, FilterRefresherT> : IEntityFilter<FilterD
 
 		_idToFilterData.Clear();
 		_listeners.Clear();
+
+		DataAddedEvent = null;
+		DataRemovedEvent = null;
+		DataUpdatedEvent = null;
 	}
 
 	private void Apply(Entity entity)

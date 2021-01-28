@@ -11,9 +11,9 @@ public class Entity
 
 	private List<EntityComponent> _components = new List<EntityComponent>();
 
-	internal Entity(EntityComponent[] components)
+	internal Entity(string identifier, EntityComponent[] components)
 	{
-		UniqueIdentifier = Guid.NewGuid().ToString();
+		UniqueIdentifier = identifier;
 		if(components != null)
 		{
 			AddComponents(components);
@@ -33,7 +33,7 @@ public class Entity
 		if(!_components.Contains(entityComponent) && entityComponent.Entity == null)
 		{
 			_components.Add(entityComponent);
-			entityComponent.Entity = this;
+			entityComponent.Initialize(this);
 			ComponentAddedEvent?.Invoke(this, entityComponent);
 		}
 	}
@@ -43,7 +43,7 @@ public class Entity
 		if(_components.Remove(entityComponent))
 		{
 			ComponentRemovedEvent?.Invoke(this, entityComponent);
-			entityComponent.Entity = null;
+			entityComponent.Deinitialize();
 		}
 	}
 
@@ -57,6 +57,31 @@ public class Entity
 			}
 		}
 		return null;
+	}
+
+	public T GetComponent<T>(Predicate<T> predicate) where T : EntityComponent
+	{
+		for(int i = 0, c = _components.Count; i < c; i++)
+		{
+			if(_components[i] is T castedComp && predicate(castedComp))
+			{
+				return castedComp;
+			}
+		}
+		return null;
+	}
+
+	public T[] GetComponents<T>() where T : EntityComponent
+	{
+		List<T> components = new List<T>();
+		for(int i = 0, c = _components.Count; i < c; i++)
+		{
+			if(_components[i] is T castedComp)
+			{
+				components.Add(castedComp);
+			}
+		}
+		return components.ToArray();
 	}
 
 	public EntityComponent[] GetAllComponents()
