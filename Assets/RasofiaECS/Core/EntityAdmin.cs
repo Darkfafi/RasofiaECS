@@ -37,6 +37,24 @@ public sealed class EntityAdmin : IDisposable
 		Entity entity = CreateEntity(singletonId, singletonComponent);
 		entity.AddComponents(entityComponents);
 	}
+	public bool IsSingletonEntity(Entity entity)
+	{
+		EntityMasterComponent masterComponent = entity.GetComponent<EntityMasterComponent>();
+		if(_entitiesMap.TryGetValue(masterComponent.GetType().FullName, out Entity singletonEntity))
+		{
+			return singletonEntity == entity;
+		}
+		return false;
+	}
+
+	public bool IsSingletonComponent(EntityMasterComponent masterComponent)
+	{
+		if(_entitiesMap.TryGetValue(masterComponent.GetType().FullName, out Entity entity))
+		{
+			return entity.GetComponent<EntityMasterComponent>(x => x == masterComponent) != null;
+		}
+		return false;
+	}
 
 	public T GetSingletonComponent<T>() where T : EntityMasterComponent
 	{
@@ -55,6 +73,11 @@ public sealed class EntityAdmin : IDisposable
 	public Entity[] GetAllEntities()
 	{
 		return _entitiesMap.Values.ToArray();
+	}
+
+	public EntitySystemBase[] GetAllSystems()
+	{
+		return _systems.ToArray();
 	}
 
 	public bool TryGetEntity(string entityId, out Entity entity)
@@ -193,10 +216,16 @@ public sealed class EntityAdmin : IDisposable
 		_entitiesMap.Add(entity.UniqueIdentifier, entity);
 		entity.ComponentAddedEvent += OnEntityMarkedDirty;
 		entity.ComponentRemovedEvent += OnEntityMarkedDirty;
+		RefreshEntity(entity);
 		EntityAddedEvent?.Invoke(entity);
 	}
 
 	private void OnEntityMarkedDirty(Entity entity, EntityComponent component)
+	{
+		RefreshEntity(entity);
+	}
+
+	private void RefreshEntity(Entity entity)
 	{
 		EntityMasterComponent[] masters = entity.GetComponents<EntityMasterComponent>();
 		for(int i = masters.Length - 1; i >= 0; i--)

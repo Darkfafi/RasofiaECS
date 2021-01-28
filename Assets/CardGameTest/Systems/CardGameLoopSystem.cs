@@ -7,6 +7,7 @@
 		base.Initialize(entityAdmin);
 		_cardGameMaster = EntityAdmin.GetSingletonComponent<CardGameMaster>();
 		_cardGameMaster.GamePhaseTag.GamePhaseChangedEvent += OnGamePhaseChangedEvent;
+		OnGamePhaseChangedEvent(_cardGameMaster.GamePhaseTag.GamePhase);
 	}
 
 	public override void Deinitialize()
@@ -26,8 +27,14 @@
 					Entity[] cards = CardHelperMethods.CreateFullDeckOfCards(EntityAdmin, true);
 					for(int j = 0; j < cards.Length; j++)
 					{
-						CardHelperMethods.MoveToZone(cards[j], x.Master.DeckZone);
+						CardHelperMethods.MoveToZone(cards[j], x.Master.GetCardZoneMaster(CardZone.Deck));
 					}
+				});
+				break;
+			case GamePhase.Gameplay:
+				EntityAdmin.GetEntityFilter<MasterFilterData<SeatMaster>>().ForEach(x =>
+				{
+					//x.Master.getz
 				});
 				break;
 		}

@@ -9,4 +9,9 @@
 	{
 		SeatPhase = seatPhase;
 	}
+
+	public override string GetExtraInfo()
+	{
+		return SeatPhase.ToString();
+	}
 }

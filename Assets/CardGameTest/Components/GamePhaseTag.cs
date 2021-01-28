@@ -22,4 +22,9 @@ public class GamePhaseTag : EntityComponent
 			GamePhaseChangedEvent?.Invoke(GamePhase);
 		}
 	}
+
+	public override string GetExtraInfo()
+	{
+		return GamePhase.ToString();
+	}
 }

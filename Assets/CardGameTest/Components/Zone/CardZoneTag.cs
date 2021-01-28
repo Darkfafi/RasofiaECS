@@ -9,4 +9,9 @@
 	{
 		CardZone = cardZone;
 	}
+
+	public override string GetExtraInfo()
+	{
+		return CardZone.ToString();
+	}
 }

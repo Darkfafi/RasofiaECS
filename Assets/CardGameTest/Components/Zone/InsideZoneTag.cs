@@ -2,19 +2,19 @@
 
 public class InsideZoneTag : EntityComponent
 {
-	public event Action<CardZoneTag> OwnerZoneChangedEvent;
+	public event Action<CardZoneMaster> OwnerZoneChangedEvent;
 
-	public CardZoneTag Zone
+	public CardZoneMaster Zone
 	{
 		get; private set;
 	}
 
-	public InsideZoneTag(CardZoneTag zone)
+	public InsideZoneTag(CardZoneMaster zone)
 	{
 		Zone = zone;
 	}
 
-	public void SetOwnerZone(CardZoneTag zone)
+	public void SetOwnerZone(CardZoneMaster zone)
 	{
 		if(Zone != zone)
 		{

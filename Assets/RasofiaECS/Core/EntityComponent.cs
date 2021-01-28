@@ -5,6 +5,11 @@
 		get; private set;
 	}
 
+	public virtual string GetExtraInfo()
+	{
+		return "-";
+	}
+
 	internal void Initialize(Entity entity)
 	{
 		if(Entity == null)

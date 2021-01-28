@@ -52,7 +52,7 @@ public static class CardHelperMethods
 		return allCards.ToArray();
 	}
 
-	public static void MoveToZone(Entity entity, CardZoneTag zone)
+	public static void MoveToZone(Entity entity, CardZoneMaster zone)
 	{
 		InsideZoneTag ownerZoneTag = entity.GetComponent<InsideZoneTag>();
 		if(ownerZoneTag != null)

@@ -20,6 +20,6 @@ public struct MasterFilterData<MasterT> : IEntityFilterData where MasterT : Enti
 	public bool TrySetFilterData(Entity entity, EntityAdmin entityAdmin)
 	{
 		Master = entity.GetComponent<MasterT>();
-		return Master.IsComplete;
+		return Master != null && Master.IsComplete;
 	}
 }

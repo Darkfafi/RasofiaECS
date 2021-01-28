@@ -1,35 +1,38 @@
 ﻿using UnityEngine;
 
-public class CardGame : MonoBehaviour
+public class CardGame : MonoBehaviour, IEntityAdminHolder
 {
-	private EntityAdmin _admin;
+	public EntityAdmin EntityAdmin
+	{
+		get; private set;
+	}
 
 	protected void Awake()
 	{
-		_admin = EntityAdmin.Create(new CardGameLoopSystem());
+		EntityAdmin = EntityAdmin.Create(new CardGameLoopSystem());
 
 		// Singleton Components
-		_admin.AddSingletonComponent(new CardGameMaster(), new GamePhaseTag(GamePhase.None));
+		EntityAdmin.AddSingletonComponent(new CardGameMaster(), new GamePhaseTag(GamePhase.None));
+		EntityAdmin.AddSingletonComponent(new ActionsMaster());
 
-		Entity seat = _admin.CreateEntity
+		// Setup Seat / Gameboard
+		SeatMaster seatMaster;
+		EntityAdmin.CreateEntity
 		(
-			new SeatMaster(),
+			seatMaster = new SeatMaster(),
 			new SeatPhaseTag(SeatPhase.None)
 		);
 
-		_admin.CreateEntity
-		(
-			new CardZoneMaster(),
-			new CardZoneTag(CardZone.Deck),
-			new ParentTag(seat)
-		);
+		CardZoneHelperMethods.CreateCardZone(EntityAdmin, CardZone.Deck, seatMaster);
+		CardZoneHelperMethods.CreateCardZone(EntityAdmin, CardZone.Play, seatMaster);
 
-		_admin.GetSingletonComponent<CardGameMaster>().GamePhaseTag.SetPhase(GamePhase.Setup);
+		// Start Game
+		EntityAdmin.GetSingletonComponent<CardGameMaster>().GamePhaseTag.SetPhase(GamePhase.Setup);
 	}
 
 	protected void Update()
 	{
-		_admin.ExecuteSystems(Time.deltaTime);
+		EntityAdmin.ExecuteSystems(Time.deltaTime);
 	}
 }
 

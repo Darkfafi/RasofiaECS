@@ -1,6 +1,5 @@
-﻿using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 public class SeatMaster : EntityMasterComponent
 {
@@ -17,14 +16,33 @@ public class SeatMaster : EntityMasterComponent
 		get; private set;
 	}
 
-	public CardZoneTag DeckZone
+	private Dictionary<CardZone, CardZoneMaster> _cardZones = new Dictionary<CardZone, CardZoneMaster>();
+
+	public CardZoneMaster GetCardZoneMaster(CardZone cardZone)
 	{
-		get; private set;
+		if(_cardZones.TryGetValue(cardZone, out CardZoneMaster cardZoneMaster))
+		{
+			return cardZoneMaster;
+		}
+		return null;
 	}
 
 	protected override void OnRefresh()
 	{
 		SeatPhaseTag = Entity.GetComponent<SeatPhaseTag>();
-		DeckZone = Entity.GetComponent<CardZoneTag>(x => x.CardZone == CardZone.Deck);
+		CardZone[] cardZones = Enum.GetValues(typeof(CardZone)) as CardZone[];
+
+		for(int i = 0; i < cardZones.Length; i++)
+		{
+			CardZoneMaster cardZoneMaster = Entity.GetComponent<CardZoneMaster>(x => x.CardZoneTag?.CardZone == cardZones[i]);
+			if(cardZoneMaster != null)
+			{
+				_cardZones[cardZones[i]] = cardZoneMaster;
+			}
+			else
+			{
+				_cardZones.Remove(cardZones[i]);
+			}
+		}
 	}
 }
